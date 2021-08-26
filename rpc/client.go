@@ -331,7 +331,7 @@ func (c *Client) CallContext(ctx context.Context, result interface{}, method str
 		return ErrNoResult
 	default:
 		if method == "eth_getBlockByNumber" {
-			trimDifficult(resp.Result)
+			resp.Result, _ = trimDifficult(resp.Result)
 		}
 		return json.Unmarshal(resp.Result, &result)
 	}

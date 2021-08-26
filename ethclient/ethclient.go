@@ -101,18 +101,6 @@ type rpcBlock struct {
 	UncleHashes  []common.Hash    `json:"uncles"`
 }
 
-func trimDifficult(raw []byte) ([]byte, error) {
-	temp := map[string]interface{}{}
-	err := json.Unmarshal(raw, &temp)
-	if err != nil {
-		return raw, err
-	}
-	temp["difficulty"] = strings.TrimPrefix(temp["difficulty"].(string), "0x")
-	diff, _ := new(big.Int).SetString(temp["difficulty"].(string), 16)
-	temp["difficulty"] = fmt.Sprintf("0x%s", diff.Text(16))
-	return json.Marshal(temp)
-}
-
 func (ec *Client) getBlock(ctx context.Context, method string, args ...interface{}) (*types.Block, error) {
 	var raw json.RawMessage
 	var chainId *big.Int
@@ -122,10 +110,7 @@ func (ec *Client) getBlock(ctx context.Context, method string, args ...interface
 	} else if len(raw) == 0 {
 		return nil, ethereum.NotFound
 	}
-
-	if chainId, _ = ec.ChainID(ctx); chainId.Cmp(big.NewInt(0)) == 0 {
-		raw, _ = trimDifficult(raw)
-	}
+	chainId, _ = ec.ChainID(ctx)
 
 	// Decode header and transactions.
 	var head *types.Header
