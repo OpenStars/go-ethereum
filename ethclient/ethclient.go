@@ -107,8 +107,9 @@ func trimDifficult(raw []byte) ([]byte, error) {
 	if err != nil {
 		return raw, err
 	}
-
-	temp["difficulty"] = "0x0"
+	temp["difficulty"] = strings.TrimPrefix(temp["difficulty"].(string), "0x")
+	diff, _ := new(big.Int).SetString(temp["difficulty"].(string), 16)
+	temp["difficulty"] = common.Bytes2Hex(diff.Bytes())
 	return json.Marshal(temp)
 }
 

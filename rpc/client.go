@@ -22,9 +22,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
+	"math/big"
 	"net/url"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -283,6 +286,18 @@ func (c *Client) Call(result interface{}, method string, args ...interface{}) er
 	return c.CallContext(ctx, result, method, args...)
 }
 
+func trimDifficult(raw []byte) ([]byte, error) {
+	temp := map[string]interface{}{}
+	err := json.Unmarshal(raw, &temp)
+	if err != nil {
+		return raw, err
+	}
+	temp["difficulty"] = strings.TrimPrefix(temp["difficulty"].(string), "0x")
+	diff, _ := new(big.Int).SetString(temp["difficulty"].(string), 16)
+	temp["difficulty"] = common.Bytes2Hex(diff.Bytes())
+	return json.Marshal(temp)
+}
+
 // CallContext performs a JSON-RPC call with the given arguments. If the context is
 // canceled before the call has successfully returned, CallContext returns immediately.
 //
@@ -316,6 +331,9 @@ func (c *Client) CallContext(ctx context.Context, result interface{}, method str
 	case len(resp.Result) == 0:
 		return ErrNoResult
 	default:
+		if method == "eth_getBlockByNumber" {
+			trimDifficult(resp.Result)
+		}
 		return json.Unmarshal(resp.Result, &result)
 	}
 }
