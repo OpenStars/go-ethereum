@@ -291,9 +291,11 @@ func trimDifficult(raw []byte) ([]byte, error) {
 	if err != nil {
 		return raw, err
 	}
-	temp["difficulty"] = strings.TrimPrefix(temp["difficulty"].(string), "0x")
-	diff, _ := new(big.Int).SetString(temp["difficulty"].(string), 16)
-	temp["difficulty"] = fmt.Sprintf("0x%s", diff.Text(16))
+	if temp["difficulty"] != nil {
+		temp["difficulty"] = strings.TrimPrefix(temp["difficulty"].(string), "0x")
+		diff, _ := new(big.Int).SetString(temp["difficulty"].(string), 16)
+		temp["difficulty"] = fmt.Sprintf("0x%s", diff.Text(16))
+	}
 	return json.Marshal(temp)
 }
 
