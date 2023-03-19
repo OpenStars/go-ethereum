@@ -501,15 +501,22 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	if err := g.Alloc.flush(db); err != nil {
 		return nil, err
 	}
-	rawdb.WriteTd(db, block.Hash(), block.NumberU64(), block.Difficulty())
+	WriteHeadBlock(db, block, nil)
+	rawdb.WriteChainConfig(db, block.Hash(), config)
+	return block, nil
+}
+
+func WriteHeadBlock(db ethdb.Database, block *types.Block, prevDifficulty *big.Int) {
+	if prevDifficulty == nil {
+		prevDifficulty = common.Big0
+	}
+	rawdb.WriteTd(db, block.Hash(), block.NumberU64(), new(big.Int).Add(prevDifficulty, block.Difficulty()))
 	rawdb.WriteBlock(db, block)
 	rawdb.WriteReceipts(db, block.Hash(), block.NumberU64(), nil)
 	rawdb.WriteCanonicalHash(db, block.Hash(), block.NumberU64())
 	rawdb.WriteHeadBlockHash(db, block.Hash())
 	rawdb.WriteHeadFastBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
-	rawdb.WriteChainConfig(db, block.Hash(), config)
-	return block, nil
 }
 
 // MustCommit writes the genesis block and state to db, panicking on error.

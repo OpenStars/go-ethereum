@@ -459,6 +459,22 @@ func (t *jsTracer) setBuiltinFunctions() {
 		}
 		return false
 	})
+	vm.Set("isPrecompiledArbOS", func(v goja.Value) bool {
+		a, err := t.fromBuf(vm, v, true)
+		if err != nil {
+			vm.Interrupt(err)
+			return false
+		}
+		addr := common.BytesToAddress(a)
+		for _, p := range t.activePrecompiles {
+			space := new(big.Int).SetUint64(0x65)
+			arbOS := p.Hash().Big().Cmp(space) >= 0
+			if p == addr && arbOS {
+				return true
+			}
+		}
+		return false
+	})
 	vm.Set("slice", func(slice goja.Value, start, end int) goja.Value {
 		b, err := t.fromBuf(vm, slice, false)
 		if err != nil {

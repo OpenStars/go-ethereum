@@ -297,6 +297,11 @@ func (snaptest *gappedSnapshotTest) test(t *testing.T) {
 
 	// Insert a few more blocks without enabling snapshot
 	var cacheConfig = &CacheConfig{
+
+		// Arbitrum
+		TriesInMemory: 128,
+		TrieRetention: 30 * time.Minute,
+
 		TrieCleanLimit: 256,
 		TrieDirtyLimit: 256,
 		TrieTimeLimit:  5 * time.Minute,
@@ -368,6 +373,11 @@ func (snaptest *wipeCrashSnapshotTest) test(t *testing.T) {
 	chain.Stop()
 
 	config := &CacheConfig{
+
+		// Arbitrum
+		TriesInMemory: 128,
+		TrieRetention: 30 * time.Minute,
+
 		TrieCleanLimit: 256,
 		TrieDirtyLimit: 256,
 		TrieTimeLimit:  5 * time.Minute,
@@ -383,6 +393,11 @@ func (snaptest *wipeCrashSnapshotTest) test(t *testing.T) {
 
 	// Restart the chain, the wiper should starts working
 	config = &CacheConfig{
+
+		// Arbitrum
+		TriesInMemory: 128,
+		TrieRetention: 30 * time.Minute,
+
 		TrieCleanLimit: 256,
 		TrieDirtyLimit: 256,
 		TrieTimeLimit:  5 * time.Minute,
