@@ -28,6 +28,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -179,7 +180,6 @@ func Transition(ctx *cli.Context) error {
 
 	vmConfig := vm.Config{
 		Tracer: tracer,
-		Debug:  (tracer != nil),
 	}
 	// Construct the chainconfig
 	var chainConfig *params.ChainConfig
@@ -240,16 +240,29 @@ func Transition(ctx *cli.Context) error {
 		}
 	}
 	// We may have to sign the transactions.
-	signer := types.MakeSigner(chainConfig, big.NewInt(int64(prestate.Env.Number)))
+	signer := types.MakeSigner(chainConfig, big.NewInt(int64(prestate.Env.Number)), prestate.Env.Timestamp)
 
 	if txs, err = signUnsignedTransactions(txsWithKeys, signer); err != nil {
 		return NewError(ErrorJson, fmt.Errorf("failed signing transactions: %v", err))
 	}
 	// Sanity check, to not `panic` in state_transition
 	if chainConfig.IsLondon(big.NewInt(int64(prestate.Env.Number))) {
-		if prestate.Env.BaseFee == nil {
+		if prestate.Env.BaseFee != nil {
+			// Already set, base fee has precedent over parent base fee.
+		} else if prestate.Env.ParentBaseFee != nil && prestate.Env.Number != 0 {
+			parent := &types.Header{
+				Number:   new(big.Int).SetUint64(prestate.Env.Number - 1),
+				BaseFee:  prestate.Env.ParentBaseFee,
+				GasUsed:  prestate.Env.ParentGasUsed,
+				GasLimit: prestate.Env.ParentGasLimit,
+			}
+			prestate.Env.BaseFee = misc.CalcBaseFee(chainConfig, parent)
+		} else {
 			return NewError(ErrorConfig, errors.New("EIP-1559 config but missing 'currentBaseFee' in env section"))
 		}
+	}
+	if chainConfig.IsShanghai(big.NewInt(int64(prestate.Env.Number)), prestate.Env.Timestamp) && prestate.Env.Withdrawals == nil {
+		return NewError(ErrorConfig, errors.New("Shanghai config but missing 'withdrawals' in env section"))
 	}
 	isMerged := chainConfig.TerminalTotalDifficulty != nil && chainConfig.TerminalTotalDifficulty.BitLen() == 0
 	env := prestate.Env
@@ -376,7 +389,10 @@ type Alloc map[common.Address]core.GenesisAccount
 
 func (g Alloc) OnRoot(common.Hash) {}
 
-func (g Alloc) OnAccount(addr common.Address, dumpAccount state.DumpAccount) {
+func (g Alloc) OnAccount(addr *common.Address, dumpAccount state.DumpAccount) {
+	if addr == nil {
+		return
+	}
 	balance, _ := new(big.Int).SetString(dumpAccount.Balance, 10)
 	var storage map[common.Hash]common.Hash
 	if dumpAccount.Storage != nil {
@@ -391,7 +407,7 @@ func (g Alloc) OnAccount(addr common.Address, dumpAccount state.DumpAccount) {
 		Balance: balance,
 		Nonce:   dumpAccount.Nonce,
 	}
-	g[addr] = genesisAccount
+	g[*addr] = genesisAccount
 }
 
 // saveFile marshals the object to the given file

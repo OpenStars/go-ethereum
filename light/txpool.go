@@ -27,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
@@ -69,6 +70,7 @@ type TxPool struct {
 
 	istanbul bool // Fork indicator whether we are in the istanbul stage.
 	eip2718  bool // Fork indicator whether we are in the eip2718 stage.
+	shanghai bool // Fork indicator whether we are in the shanghai stage.
 }
 
 // TxRelayBackend provides an interface to the mechanism that forwards transactions to the
@@ -316,6 +318,7 @@ func (pool *TxPool) setNewHead(head *types.Header) {
 	next := new(big.Int).Add(head.Number, big.NewInt(1))
 	pool.istanbul = pool.config.IsIstanbul(next)
 	pool.eip2718 = pool.config.IsBerlin(next)
+	pool.shanghai = pool.config.IsShanghai(next, uint64(time.Now().Unix()))
 }
 
 // Stop stops the light transaction pool
@@ -354,7 +357,7 @@ func (pool *TxPool) validateTx(ctx context.Context, tx *types.Transaction) error
 	// Validate the transaction sender and it's sig. Throw
 	// if the from fields is invalid.
 	if from, err = types.Sender(pool.signer, tx); err != nil {
-		return core.ErrInvalidSender
+		return txpool.ErrInvalidSender
 	}
 	// Last but not least check for nonce errors
 	currentState := pool.currentState(ctx)
@@ -366,14 +369,14 @@ func (pool *TxPool) validateTx(ctx context.Context, tx *types.Transaction) error
 	// block limit gas.
 	header := pool.chain.GetHeaderByHash(pool.head)
 	if header.GasLimit < tx.Gas() {
-		return core.ErrGasLimit
+		return txpool.ErrGasLimit
 	}
 
 	// Transactions can't be negative. This may never happen
 	// using RLP decoded transactions but may occur if you create
 	// a transaction using the RPC for example.
 	if tx.Value().Sign() < 0 {
-		return core.ErrNegativeValue
+		return txpool.ErrNegativeValue
 	}
 
 	// Transactor should have enough funds to cover the costs
@@ -383,7 +386,7 @@ func (pool *TxPool) validateTx(ctx context.Context, tx *types.Transaction) error
 	}
 
 	// Should supply enough intrinsic gas
-	gas, err := core.IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil, true, pool.istanbul)
+	gas, err := core.IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil, true, pool.istanbul, pool.shanghai)
 	if err != nil {
 		return err
 	}

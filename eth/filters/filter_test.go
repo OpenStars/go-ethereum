@@ -29,6 +29,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 func makeReceipt(addr common.Address) *types.Receipt {
@@ -53,10 +54,10 @@ func BenchmarkFilters(b *testing.B) {
 		gspec = &core.Genesis{
 			Alloc:   core.GenesisAlloc{addr1: {Balance: big.NewInt(1000000)}},
 			BaseFee: big.NewInt(params.InitialBaseFee),
+			Config:  params.TestChainConfig,
 		}
 	)
 	defer db.Close()
-
 	_, chain, receipts := core.GenerateChainWithGenesis(gspec, ethash.NewFaker(), 100010, func(i int, gen *core.BlockGen) {
 		switch i {
 		case 2403:
@@ -77,6 +78,11 @@ func BenchmarkFilters(b *testing.B) {
 			gen.AddUncheckedTx(types.NewTransaction(999, common.HexToAddress("0x999"), big.NewInt(999), 999, gen.BaseFee(), nil))
 		}
 	})
+	// The test txs are not properly signed, can't simply create a chain
+	// and then import blocks. TODO(rjl493456442) try to get rid of the
+	// manual database writes.
+	gspec.MustCommit(db)
+
 	for i, block := range chain {
 		rawdb.WriteBlock(db, block)
 		rawdb.WriteCanonicalHash(db, block.Hash(), block.NumberU64())
@@ -174,7 +180,7 @@ func TestFilters(t *testing.T) {
 	// Set block 998 as Finalized (-3)
 	rawdb.WriteFinalizedBlockHash(db, chain[998].Hash())
 
-	filter := sys.NewRangeFilter(0, -1, []common.Address{addr}, [][]common.Hash{{hash1, hash2, hash3, hash4}})
+	filter := sys.NewRangeFilter(0, int64(rpc.LatestBlockNumber), []common.Address{addr}, [][]common.Hash{{hash1, hash2, hash3, hash4}})
 	logs, _ := filter.Logs(context.Background())
 	if len(logs) != 4 {
 		t.Error("expected 4 log, got", len(logs))
@@ -188,34 +194,36 @@ func TestFilters(t *testing.T) {
 			sys.NewRangeFilter(900, 999, []common.Address{addr}, [][]common.Hash{{hash3}}),
 			[]common.Hash{hash3},
 		}, {
-			sys.NewRangeFilter(990, -1, []common.Address{addr}, [][]common.Hash{{hash3}}),
+			sys.NewRangeFilter(990, int64(rpc.LatestBlockNumber), []common.Address{addr}, [][]common.Hash{{hash3}}),
 			[]common.Hash{hash3},
 		}, {
 			sys.NewRangeFilter(1, 10, nil, [][]common.Hash{{hash1, hash2}}),
 			[]common.Hash{hash1, hash2},
 		}, {
-			sys.NewRangeFilter(0, -1, nil, [][]common.Hash{{common.BytesToHash([]byte("fail"))}}),
+			sys.NewRangeFilter(0, int64(rpc.LatestBlockNumber), nil, [][]common.Hash{{common.BytesToHash([]byte("fail"))}}),
 			nil,
 		}, {
-			sys.NewRangeFilter(0, -1, []common.Address{common.BytesToAddress([]byte("failmenow"))}, nil),
+			sys.NewRangeFilter(0, int64(rpc.LatestBlockNumber), []common.Address{common.BytesToAddress([]byte("failmenow"))}, nil),
 			nil,
 		}, {
-			sys.NewRangeFilter(0, -1, nil, [][]common.Hash{{common.BytesToHash([]byte("fail"))}, {hash1}}),
+			sys.NewRangeFilter(0, int64(rpc.LatestBlockNumber), nil, [][]common.Hash{{common.BytesToHash([]byte("fail"))}, {hash1}}),
 			nil,
 		}, {
-			sys.NewRangeFilter(-1, -1, nil, nil), []common.Hash{hash4},
+			sys.NewRangeFilter(int64(rpc.LatestBlockNumber), int64(rpc.LatestBlockNumber), nil, nil), []common.Hash{hash4},
 		}, {
-			sys.NewRangeFilter(-3, -1, nil, nil), []common.Hash{hash3, hash4},
+			sys.NewRangeFilter(int64(rpc.FinalizedBlockNumber), int64(rpc.LatestBlockNumber), nil, nil), []common.Hash{hash3, hash4},
 		}, {
-			sys.NewRangeFilter(-3, -3, nil, nil), []common.Hash{hash3},
+			sys.NewRangeFilter(int64(rpc.FinalizedBlockNumber), int64(rpc.FinalizedBlockNumber), nil, nil), []common.Hash{hash3},
 		}, {
-			sys.NewRangeFilter(-1, -3, nil, nil), nil,
+			sys.NewRangeFilter(int64(rpc.LatestBlockNumber), int64(rpc.FinalizedBlockNumber), nil, nil), nil,
 		}, {
-			sys.NewRangeFilter(-4, -1, nil, nil), nil,
+			sys.NewRangeFilter(int64(rpc.SafeBlockNumber), int64(rpc.LatestBlockNumber), nil, nil), nil,
 		}, {
-			sys.NewRangeFilter(-4, -4, nil, nil), nil,
+			sys.NewRangeFilter(int64(rpc.SafeBlockNumber), int64(rpc.SafeBlockNumber), nil, nil), nil,
 		}, {
-			sys.NewRangeFilter(-1, -4, nil, nil), nil,
+			sys.NewRangeFilter(int64(rpc.LatestBlockNumber), int64(rpc.SafeBlockNumber), nil, nil), nil,
+		}, {
+			sys.NewRangeFilter(int64(rpc.PendingBlockNumber), int64(rpc.PendingBlockNumber), nil, nil), nil,
 		},
 	} {
 		logs, _ := tc.f.Logs(context.Background())

@@ -17,6 +17,7 @@
 package ethtest
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"reflect"
@@ -63,8 +64,9 @@ func (s *Suite) dial() (*Conn, error) {
 	conn.caps = []p2p.Cap{
 		{Name: "eth", Version: 66},
 		{Name: "eth", Version: 67},
+		{Name: "eth", Version: 68},
 	}
-	conn.ourHighestProtoVersion = 67
+	conn.ourHighestProtoVersion = 68
 	return &conn, nil
 }
 
@@ -184,7 +186,7 @@ loop:
 	}
 	// make sure eth protocol version is set for negotiation
 	if c.negotiatedProtoVersion == 0 {
-		return nil, fmt.Errorf("eth protocol version must be set in Conn")
+		return nil, errors.New("eth protocol version must be set in Conn")
 	}
 	if status == nil {
 		// default status message
@@ -359,6 +361,8 @@ func (s *Suite) waitAnnounce(conn *Conn, blockAnnouncement *NewBlock) error {
 			return nil
 
 		// ignore tx announcements from previous tests
+		case *NewPooledTransactionHashes66:
+			continue
 		case *NewPooledTransactionHashes:
 			continue
 		case *Transactions:

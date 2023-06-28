@@ -26,6 +26,7 @@ import (
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -92,13 +93,13 @@ func makeTries() (chtTrie *trie.Trie, bloomTrie *trie.Trie, chtKeys, bloomKeys [
 		// The element in CHT is <big-endian block number> -> <block hash>
 		key := make([]byte, 8)
 		binary.BigEndian.PutUint64(key, uint64(i+1))
-		chtTrie.Update(key, []byte{0x1, 0xf})
+		chtTrie.MustUpdate(key, []byte{0x1, 0xf})
 		chtKeys = append(chtKeys, key)
 
 		// The element in Bloom trie is <2 byte bit index> + <big-endian block number> -> bloom
 		key2 := make([]byte, 10)
 		binary.BigEndian.PutUint64(key2[2:], uint64(i+1))
-		bloomTrie.Update(key2, []byte{0x2, 0xe})
+		bloomTrie.MustUpdate(key2, []byte{0x2, 0xe})
 		bloomKeys = append(bloomKeys, key2)
 	}
 	return
@@ -111,7 +112,7 @@ func init() {
 
 type fuzzer struct {
 	chain *core.BlockChain
-	pool  *core.TxPool
+	pool  *txpool.TxPool
 
 	chainLen  int
 	addr, txs []common.Hash
@@ -137,7 +138,7 @@ func newFuzzer(input []byte) *fuzzer {
 		chtKeys:   chtKeys,
 		bloomKeys: bloomKeys,
 		nonce:     uint64(len(txHashes)),
-		pool:      core.NewTxPool(core.DefaultTxPoolConfig, params.TestChainConfig, chain),
+		pool:      txpool.NewTxPool(txpool.DefaultConfig, params.TestChainConfig, chain),
 		input:     bytes.NewReader(input),
 	}
 }
@@ -229,7 +230,7 @@ func (f *fuzzer) BlockChain() *core.BlockChain {
 	return f.chain
 }
 
-func (f *fuzzer) TxPool() *core.TxPool {
+func (f *fuzzer) TxPool() *txpool.TxPool {
 	return f.pool
 }
 
