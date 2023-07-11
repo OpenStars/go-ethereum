@@ -22,6 +22,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
@@ -54,7 +55,7 @@ func (bc *BlockChain) ReorgToOldBlock(newHead *types.Block) error {
 }
 
 func (bc *BlockChain) ClipToPostNitroGenesis(blockNum rpc.BlockNumber) (rpc.BlockNumber, rpc.BlockNumber) {
-	currentBlock := rpc.BlockNumber(bc.CurrentBlock().NumberU64())
+	currentBlock := rpc.BlockNumber(bc.CurrentBlock().Number.Uint64())
 	nitroGenesis := rpc.BlockNumber(bc.Config().ArbitrumChainParams.GenesisBlockNum)
 	if blockNum == rpc.LatestBlockNumber || blockNum == rpc.PendingBlockNumber {
 		blockNum = currentBlock
@@ -66,4 +67,13 @@ func (bc *BlockChain) ClipToPostNitroGenesis(blockNum rpc.BlockNumber) (rpc.Bloc
 		blockNum = nitroGenesis
 	}
 	return blockNum, currentBlock
+}
+
+func (bc *BlockChain) RecoverState(block *types.Block) error {
+	if bc.HasState(block.Root()) {
+		return nil
+	}
+	log.Warn("recovering block state", "num", block.Number(), "hash", block.Hash(), "root", block.Root())
+	_, err := bc.recoverAncestors(block)
+	return err
 }

@@ -23,6 +23,10 @@ type Config struct {
 	BloomBitsBlocks uint64 `koanf:"bloom-bits-blocks"`
 	BloomConfirms   uint64 `koanf:"bloom-confirms"`
 
+	// Parameters for the filter system
+	FilterLogCacheSize int           `koanf:"filter-log-cache-size"`
+	FilterTimeout      time.Duration `koanf:"filter-timeout"`
+
 	// FeeHistoryMaxBlockCount limits the number of historical blocks a fee history request may cover
 	FeeHistoryMaxBlockCount uint64 `koanf:"feehistory-max-block-count"`
 
@@ -42,9 +46,12 @@ func ConfigAddOptions(prefix string, f *flag.FlagSet) {
 	f.Float64(prefix+".tx-fee-cap", DefaultConfig.RPCTxFeeCap, "cap on transaction fee (in ether) that can be sent via the RPC APIs (0 = no cap)")
 	f.Duration(prefix+".evm-timeout", DefaultConfig.RPCEVMTimeout, "timeout used for eth_call (0=infinite)")
 	f.Uint64(prefix+".bloom-bits-blocks", DefaultConfig.BloomBitsBlocks, "number of blocks a single bloom bit section vector holds")
+	f.Uint64(prefix+".bloom-confirms", DefaultConfig.BloomConfirms, "number of confirmation blocks before a bloom section is considered final")
 	f.Uint64(prefix+".feehistory-max-block-count", DefaultConfig.FeeHistoryMaxBlockCount, "max number of blocks a fee history request may cover")
 	f.String(prefix+".classic-redirect", DefaultConfig.ClassicRedirect, "url to redirect classic requests, use \"error:[CODE:]MESSAGE\" to return specified error instead of redirecting")
 	f.Duration(prefix+".classic-redirect-timeout", DefaultConfig.ClassicRedirectTimeout, "timeout for forwarded classic requests, where 0 = no timeout")
+	f.Int(prefix+".filter-log-cache-size", DefaultConfig.FilterLogCacheSize, "log filter system maximum number of cached blocks")
+	f.Duration(prefix+".filter-timeout", DefaultConfig.FilterTimeout, "log filter system maximum time filters stay active")
 
 	arbDebug := DefaultConfig.ArbDebug
 	f.Uint64(prefix+".arbdebug.block-range-bound", arbDebug.BlockRangeBound, "bounds the number of blocks arbdebug calls may return")
@@ -57,10 +64,12 @@ var DefaultConfig = Config{
 	RPCEVMTimeout:           ethconfig.Defaults.RPCEVMTimeout, // 5 seconds
 	BloomBitsBlocks:         params.BloomBitsBlocks * 4,       // we generally have smaller blocks
 	BloomConfirms:           params.BloomConfirms,
+	FilterLogCacheSize:      32,
+	FilterTimeout:           5 * time.Minute,
 	FeeHistoryMaxBlockCount: 1024,
 	ClassicRedirect:         "",
 	ArbDebug: ArbDebugConfig{
-		BlockRangeBound:   1024,
-		TimeoutQueueBound: 1024,
+		BlockRangeBound:   256,
+		TimeoutQueueBound: 512,
 	},
 }
