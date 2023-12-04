@@ -38,6 +38,8 @@ var (
 type serviceRegistry struct {
 	mu       sync.Mutex
 	services map[string]service
+
+	apiFilter map[string]bool
 }
 
 // service represents a registered object.
@@ -81,11 +83,17 @@ func (r *serviceRegistry) registerName(name string, rcvr interface{}) error {
 		}
 		r.services[name] = svc
 	}
-	for name, cb := range callbacks {
+	for methodName, cb := range callbacks {
+		if r.apiFilter != nil {
+			key := name + "_" + methodName
+			if _, ok := r.apiFilter[key]; !ok {
+				continue
+			}
+		}
 		if cb.isSubscribe {
-			svc.subscriptions[name] = cb
+			svc.subscriptions[methodName] = cb
 		} else {
-			svc.callbacks[name] = cb
+			svc.callbacks[methodName] = cb
 		}
 	}
 	return nil
@@ -214,19 +222,8 @@ func (c *callback) call(ctx context.Context, method string, args []reflect.Value
 	return results[0].Interface(), nil
 }
 
-// Is t context.Context or *context.Context?
-func isContextType(t reflect.Type) bool {
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-	return t == contextType
-}
-
 // Does t satisfy the error interface?
 func isErrorType(t reflect.Type) bool {
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
 	return t.Implements(errorType)
 }
 
@@ -245,7 +242,7 @@ func isPubSub(methodType reflect.Type) bool {
 	if methodType.NumIn() < 2 || methodType.NumOut() != 2 {
 		return false
 	}
-	return isContextType(methodType.In(1)) &&
+	return methodType.In(1) == contextType &&
 		isSubscriptionType(methodType.Out(0)) &&
 		isErrorType(methodType.Out(1))
 }

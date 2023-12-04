@@ -29,6 +29,8 @@ type ArbitrumChainParams struct {
 	InitialArbOSVersion       uint64
 	InitialChainOwner         common.Address
 	GenesisBlockNum           uint64
+	MaxCodeSize               uint64 `json:"MaxCodeSize,omitempty"`     // Maximum bytecode to permit for a contract. 0 value implies params.DefaultMaxCodeSize
+	MaxInitCodeSize           uint64 `json:"MaxInitCodeSize,omitempty"` // Maximum initcode to permit in a creation transaction and create instructions. 0 value implies params.DefaultMaxInitCodeSize
 }
 
 func (c *ChainConfig) IsArbitrum() bool {
@@ -37,6 +39,20 @@ func (c *ChainConfig) IsArbitrum() bool {
 
 func (c *ChainConfig) IsArbitrumNitro(num *big.Int) bool {
 	return c.IsArbitrum() && isBlockForked(new(big.Int).SetUint64(c.ArbitrumChainParams.GenesisBlockNum), num)
+}
+
+func (c *ChainConfig) MaxCodeSize() uint64 {
+	if c.ArbitrumChainParams.MaxCodeSize == 0 {
+		return DefaultMaxCodeSize
+	}
+	return c.ArbitrumChainParams.MaxCodeSize
+}
+
+func (c *ChainConfig) MaxInitCodeSize() uint64 {
+	if c.ArbitrumChainParams.MaxInitCodeSize == 0 {
+		return c.MaxCodeSize() * 2
+	}
+	return c.ArbitrumChainParams.MaxInitCodeSize
 }
 
 func (c *ChainConfig) DebugMode() bool {
@@ -89,16 +105,6 @@ func ArbitrumRollupGoerliTestnetParams() ArbitrumChainParams {
 	}
 }
 
-func ArbitrumRinkebyTestParams() ArbitrumChainParams {
-	return ArbitrumChainParams{
-		EnableArbOS:               true,
-		AllowDebugPrecompiles:     false,
-		DataAvailabilityCommittee: false,
-		InitialArbOSVersion:       3,
-		InitialChainOwner:         common.HexToAddress("0x06C7DBC804D7BcD881D7b86b667893736b8e0Be2"),
-	}
-}
-
 func ArbitrumDevTestParams() ArbitrumChainParams {
 	return ArbitrumChainParams{
 		EnableArbOS:               true,
@@ -146,7 +152,6 @@ func ArbitrumOneChainConfig() *ChainConfig {
 		DAOForkBlock:        nil,
 		DAOForkSupport:      true,
 		EIP150Block:         big.NewInt(0),
-		EIP150Hash:          common.Hash{},
 		EIP155Block:         big.NewInt(0),
 		EIP158Block:         big.NewInt(0),
 		ByzantiumBlock:      big.NewInt(0),
@@ -171,7 +176,6 @@ func ArbitrumNovaChainConfig() *ChainConfig {
 		DAOForkBlock:        nil,
 		DAOForkSupport:      true,
 		EIP150Block:         big.NewInt(0),
-		EIP150Hash:          common.Hash{},
 		EIP155Block:         big.NewInt(0),
 		EIP158Block:         big.NewInt(0),
 		ByzantiumBlock:      big.NewInt(0),
@@ -196,7 +200,6 @@ func ArbitrumRollupGoerliTestnetChainConfig() *ChainConfig {
 		DAOForkBlock:        nil,
 		DAOForkSupport:      true,
 		EIP150Block:         big.NewInt(0),
-		EIP150Hash:          common.Hash{},
 		EIP155Block:         big.NewInt(0),
 		EIP158Block:         big.NewInt(0),
 		ByzantiumBlock:      big.NewInt(0),
@@ -221,7 +224,6 @@ func ArbitrumDevTestChainConfig() *ChainConfig {
 		DAOForkBlock:        nil,
 		DAOForkSupport:      true,
 		EIP150Block:         big.NewInt(0),
-		EIP150Hash:          common.Hash{},
 		EIP155Block:         big.NewInt(0),
 		EIP158Block:         big.NewInt(0),
 		ByzantiumBlock:      big.NewInt(0),
@@ -246,7 +248,6 @@ func ArbitrumDevTestDASChainConfig() *ChainConfig {
 		DAOForkBlock:        nil,
 		DAOForkSupport:      true,
 		EIP150Block:         big.NewInt(0),
-		EIP150Hash:          common.Hash{},
 		EIP155Block:         big.NewInt(0),
 		EIP158Block:         big.NewInt(0),
 		ByzantiumBlock:      big.NewInt(0),
@@ -271,7 +272,6 @@ func ArbitrumAnytrustGoerliTestnetChainConfig() *ChainConfig {
 		DAOForkBlock:        nil,
 		DAOForkSupport:      true,
 		EIP150Block:         big.NewInt(0),
-		EIP150Hash:          common.Hash{},
 		EIP155Block:         big.NewInt(0),
 		EIP158Block:         big.NewInt(0),
 		ByzantiumBlock:      big.NewInt(0),
@@ -289,31 +289,6 @@ func ArbitrumAnytrustGoerliTestnetChainConfig() *ChainConfig {
 	}
 }
 
-func ArbitrumRinkebyTestnetChainConfig() *ChainConfig {
-	return &ChainConfig{
-		ChainID:             big.NewInt(421611),
-		HomesteadBlock:      big.NewInt(0),
-		DAOForkBlock:        nil,
-		DAOForkSupport:      true,
-		EIP150Block:         big.NewInt(0),
-		EIP150Hash:          common.Hash{},
-		EIP155Block:         big.NewInt(0),
-		EIP158Block:         big.NewInt(0),
-		ByzantiumBlock:      big.NewInt(0),
-		ConstantinopleBlock: big.NewInt(0),
-		PetersburgBlock:     big.NewInt(0),
-		IstanbulBlock:       big.NewInt(0),
-		MuirGlacierBlock:    big.NewInt(0),
-		BerlinBlock:         big.NewInt(0),
-		LondonBlock:         big.NewInt(0),
-		ArbitrumChainParams: ArbitrumRinkebyTestParams(),
-		Clique: &CliqueConfig{
-			Period: 0,
-			Epoch:  0,
-		},
-	}
-}
-
 var ArbitrumSupportedChainConfigs = []*ChainConfig{
 	ArbitrumOneChainConfig(),
 	ArbitrumNovaChainConfig(),
@@ -321,5 +296,4 @@ var ArbitrumSupportedChainConfigs = []*ChainConfig{
 	ArbitrumDevTestChainConfig(),
 	ArbitrumDevTestDASChainConfig(),
 	ArbitrumAnytrustGoerliTestnetChainConfig(),
-	ArbitrumRinkebyTestnetChainConfig(),
 }
